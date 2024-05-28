@@ -24,6 +24,7 @@ CREATE TABLE LogBorrado (
     id_log INT IDENTITY(1, 1) PRIMARY KEY,
     id_venta INT,
     id_cliente INT,
+    fecha_venta DATETIME,
     fecha_borrado DATETIME DEFAULT GETDATE()
 );
 
@@ -124,19 +125,32 @@ SELECT * FROM Productos;
 UPDATE Productos SET price = 50 WHERE id = 1;
 INSERT INTO Productos (name, price) VALUES ('Jabón', 99);
 
-
-
-
 --Ejercicio 3: AFTER DELETE - Registrar Ventas Eliminadas
 --Contexto: Utiliza las tablas Ventas y LogBorrado creadas anteriormente. Crea un disparador que registre
 --los detalles de la venta eliminada en la tabla LogBorrado después de eliminar una venta.
 --Prueba del Disparador:
 --Resultado Esperado: El id_venta y la fecha_venta se registran en la tabla LogBorrado.
 
+CREATE TRIGGER registrar_ventas_eliminadas
+ON Ventas
+AFTER DELETE
+AS 
+BEGIN
+	INSERT INTO LogBorrado (id_venta, fecha_venta )
+	SELECT 
+		id_venta,
+		fecha_venta
+	FROM 
+		DELETED;
+END;
+
+DELETE FROM Ventas WHERE id_venta = 453;
 
 SELECT * FROM LogBorrado;
+SELECT id_venta, fecha_venta FROM LogBorrado;
 SELECT * FROM Ventas;
-
+INSERT  INTO VENTAS(id_venta, id_producto, cantidad) VALUES (453, 1, 38);
+SELECT * FROM Productos;
 
 
 
