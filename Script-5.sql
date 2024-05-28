@@ -81,17 +81,35 @@ END;
 SELECT * FROM LogBorrado;
 SELECT * FROM Clientes;
 
-
 --Ejercicio 2: AFTER UPDATE - Registrar Cambios de Precio
 --Contexto: Utiliza las tablas Productos y HistorialPrecios creadas anteriormente. Crea un disparador que
 --registre los cambios de precio después de actualizar un producto.
 --Resultado Esperado: El cambio de precio se registra en la tabla HistorialPrecios.
 
+CREATE TRIGGER trg_AfterProductUpdate
+ON Productos
+AFTER UPDATE
+AS
+BEGIN
+    INSERT INTO HistorialPrecios (old_price, new_price, change_date)
+    SELECT 
+        DELETED.price AS old_price,
+        INSERTED.price AS new_price,
+        GETDATE() AS change_date
+    FROM 
+        INSERTED
+    INNER JOIN 
+        DELETED ON INSERTED.id = DELETED.id
+    WHERE 
+        DELETED.price <> INSERTED.price;
+END;
+
+
 CREATE TABLE HistorialPrecios (
 	id INT IDENTITY(1, 1) PRIMARY KEY,
 	old_price MONEY,
 	new_price MONEY,
-	change_date DATETIME
+	change_date DATETIME DEFAULT GETDATE()
 );
 
 CREATE TABLE Productos (
@@ -100,20 +118,24 @@ CREATE TABLE Productos (
 	price MONEY,
 );
 
-
 SELECT * FROM HistorialPrecios;
-
 SELECT * FROM Productos;
 
+UPDATE Productos SET price = 50 WHERE id = 1;
+INSERT INTO Productos (name, price) VALUES ('Jabón', 99);
 
 
 
 
+--Ejercicio 3: AFTER DELETE - Registrar Ventas Eliminadas
+--Contexto: Utiliza las tablas Ventas y LogBorrado creadas anteriormente. Crea un disparador que registre
+--los detalles de la venta eliminada en la tabla LogBorrado después de eliminar una venta.
+--Prueba del Disparador:
+--Resultado Esperado: El id_venta y la fecha_venta se registran en la tabla LogBorrado.
 
 
-
-
-
+SELECT * FROM LogBorrado;
+SELECT * FROM Ventas;
 
 
 
