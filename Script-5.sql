@@ -87,6 +87,27 @@ SELECT * FROM Clientes;
 --registre los cambios de precio después de actualizar un producto.
 --Resultado Esperado: El cambio de precio se registra en la tabla HistorialPrecios.
 
+CREATE TABLE HistorialPrecios (
+	id INT IDENTITY(1, 1) PRIMARY KEY,
+	old_price MONEY,
+	new_price MONEY,
+	change_date DATETIME
+);
+
+CREATE TABLE Productos (
+	id INT IDENTITY(1, 1) PRIMARY KEY,
+	name VARCHAR(40),
+	price MONEY,
+);
+
+
+SELECT * FROM HistorialPrecios;
+
+SELECT * FROM Productos;
+
+
+
+
 
 
 
