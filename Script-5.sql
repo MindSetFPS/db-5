@@ -184,12 +184,59 @@ END;
 
 SELECT * FROM Inventario;
 
+--Ejercicio 5: AFTER UPDATE - Registrar Cambios de Empleados
+--Contexto: Utiliza la tabla Empleados creada anteriormente. Crea una tabla HistorialEmpleados para
+--registrar cambios de departamentos. Crea un disparador que registre los cambios de departamento
+--después de actualizar un empleado.
+--Prueba del Disparador:
+--Resultado Esperado: El cambio de departamento se registra en la tabla HistorialEmpleados.
 
+CREATE TABLE Empleados (
+	id INT IDENTITY(1, 1) PRIMARY KEY,
+	name VARCHAR(40),
+	id_department INT,
+	last_name VARCHAR(40)
+);
 
+CREATE TABLE Departamento (
+	id INT IDENTITY(1, 1) PRIMARY KEY,
+	name VARCHAR(40)
+);
 
+CREATE TABLE HistorialEmpleados(
+	id INT IDENTITY(1, 1) PRIMARY KEY,
+	id_empleado INT,
+	old_department_id INT,
+	new_department_id INT
+);
 
+SELECT * FROM Empleados;
+SELECT * FROM Departamento;
+SELECT * FROM HistorialEmpleados;
 
+CREATE TRIGGER register_department_change
+ON Empleados
+AFTER UPDATE
+AS
+BEGIN
+	INSERT INTO HistorialEmpleados(id_empleado, old_department_id, new_department_id)
+	SELECT DELETED.id, DELETED.id_department, INSERTED.id_department
+	FROM DELETED
+	INNER JOIN INSERTED ON INSERTED.id = DELETED.id;
+END;
 
+--DROP TRIGGER register_department_change;
+
+INSERT INTO Departamento (name) VALUES ('Legal');
+INSERT INTO Departamento (name) VALUES ('Administrativo');
+SELECT * FROM Departamento ;
+
+INSERT INTO Empleados (name, id_department, last_name) VALUES ('Juan', 1, 'Perez');
+SELECT * FROM Empleados;
+
+UPDATE Empleados
+SET id_department = 777
+WHERE id = 1;
 
 
 
