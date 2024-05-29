@@ -1,10 +1,8 @@
 -- SETUP --
 
 CREATE DATABASE ACTIVIDAD5
-GO
 
 USE ACTIVIDAD5
-GO
 
 CREATE TABLE Clientes (
     id_cliente INT IDENTITY(1, 2) PRIMARY KEY,
@@ -20,7 +18,6 @@ CREATE TABLE Ventas (
     fecha_venta DATETIME
 );
 
-
 CREATE TABLE LogBorrado (
     id_log INT IDENTITY(1, 1) PRIMARY KEY,
     id_venta INT,
@@ -29,8 +26,21 @@ CREATE TABLE LogBorrado (
     fecha_borrado DATETIME DEFAULT GETDATE()
 );
 
+CREATE TABLE Productos (
+	id_producto INT IDENTITY(1, 1) PRIMARY KEY,
+	nombre_producto VARCHAR(40),
+	precio MONEY,
+);
 
-GO
+CREATE TABLE Empleados (
+	id_empleado INT IDENTITY(1, 1) PRIMARY KEY,
+	nombre VARCHAR(40),
+	id_department INT,
+	last_name VARCHAR(40),
+	fecha_nacimiento DATETIME
+);
+
+DROP TABLE Empleados ;
 
 INSERT INTO Clientes (id_cliente, nombre, apellido, email) VALUES
 (1, 'Juan', 'Perez', 'JUAN.PEREZ@EXAMPLE.COM'),
@@ -38,32 +48,184 @@ INSERT INTO Clientes (id_cliente, nombre, apellido, email) VALUES
 (3, 'Luis', 'Martinez', 'LUIS.MARTINEZ@EXAMPLE.COM'),
 (4, 'Maria', 'Lopez', 'MARIA.LOPEZ@EXAMPLE.COM'),
 (5, 'Carlos', 'Hernandez', 'CARLOS.HERNANDEZ@EXAMPLE.COM');
-GO
 
-INSERT INTO Clientes (nombre, apellido, email) VALUES
-('PEPE', 'PEPEREZ', 'PEPEPEPEREZ@GMAIL.COM');
-
--- Disparadores BEFORE
+------------------------------------------- Disparadores BEFORE --------------------------------------------------
 
 -- Ejercicio 1: BEFORE INSERT - Convertir Correos Electrónicos a Minúsculas
 -- Contexto: Crea una tabla Clientes con las columnas id_cliente, nombre, apellido, y email.
 -- Prueba del Disparador:
 -- Resultado Esperado: El email se inserta en minúsculas (juan.perez@mail.com).
 
-CREATE TRIGGER trg_BeforeInsertClientes
+CREATE TRIGGER trigger_email_minusculas
 ON Clientes
-AFTER INSERT
+INSTEAD OF INSERT
 AS
 BEGIN
-    UPDATE Clientes
-    SET email = LOWER(i.email)
-    FROM Clientes c
-    INNER JOIN inserted i ON c.id_cliente = i.id_cliente;
+    INSERT INTO Clientes (nombre, apellido, email)
+    SELECT nombre, apellido, LOWER(email)
+    FROM INSERTED;
 END;
 
 SELECT * FROM Clientes;
 
--- Disparadores AFTER 
+--Ejercicio 2: BEFORE UPDATE - Asegurar Precio No Negativo
+--Contexto: Crea una tabla Productos con las columnas id_producto, nombre_producto, y precio.
+--Resultado Esperado: El precio se actualiza a 0.00.
+
+CREATE TRIGGER trigger_asegurar_precio_no_negativo
+ON Productos
+INSTEAD OF UPDATE
+AS
+BEGIN
+    UPDATE Productos
+    SET precio = 0
+    FROM Productos p
+    INNER JOIN inserted i ON p.id_producto = i.id_producto
+   	WHERE p.precio < 0;
+END;
+
+SELECT * FROM Productos;
+
+INSERT INTO Productos (nombre_producto, precio) VALUES ('juguito de najanra', -15);
+
+UPDATE Productos SET precio = -20 WHERE id_producto = 3;
+
+
+--Ejercicio 3: BEFORE DELETE - Registrar Ventas Eliminadas
+--Contexto: Crea una tabla Ventas con las columnas id_venta, id_producto, cantidad, y fecha_venta. Crea
+--una tabla LogBorrado para registrar los borrados.
+--Prueba del Disparador:
+--Resultado Esperado: El id_venta y la fecha_venta se registran en la tabla LogBorrado.
+
+CREATE TRIGGER trigger_before_delete_registrar_ventas_eliminadas
+ON Ventas
+INSTEAD OF DELETE
+AS
+BEGIN
+    -- Insertar los registros eliminados en LogBorrado
+    INSERT INTO LogBorrado (id_venta, fecha_venta)
+    SELECT id_venta, fecha_venta
+    FROM deleted;
+    
+    -- Eliminar los registros de la tabla Ventas
+    DELETE FROM Ventas
+    WHERE id_venta IN (SELECT id_venta FROM deleted);
+END;
+
+SELECT * FROM Ventas v ;
+SELECT * FROM LogBorrado;
+
+DELETE FROM Ventas WHERE id_venta = 1;
+
+--Ejercicio 4: BEFORE INSERT - Validar Teléfono
+--Contexto: Crea una tabla Usuarios con las columnas id_usuario, nombre, telefono.
+--Prueba del Disparador:
+--Resultado Esperado: El primer INSERT se completa con éxito, el segundo INSERT falla con el mensaje
+--'El teléfono debe tener 10 dígitos'.
+
+CREATE TRIGGER validar_telefono
+ON Usuarios
+INSTEAD OF INSERT
+AS
+BEGIN
+    DECLARE @TelefonoLength INT;
+    DECLARE @Telefono VARCHAR(15);
+
+    SELECT @Telefono = telefono FROM inserted;
+    SELECT @TelefonoLength = LEN(@Telefono);
+
+    IF @TelefonoLength < 6
+    BEGIN
+        RAISERROR('El tel�fono debe tener al menos 6 d�gitos', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END;
+
+
+CREATE TABLE Usuarios (
+    id_usuario INT PRIMARY KEY,
+    nombre VARCHAR(50),
+    telefono VARCHAR(15)
+);
+
+BEGIN TRANSACTION;
+INSERT INTO Usuarios (id_usuario, nombre, telefono) VALUES (1, 'Usuario1', '123456789');
+INSERT INTO Usuarios (id_usuario, nombre, telefono) VALUES (2, 'Usuario2', '987654321');
+INSERT INTO Usuarios (id_usuario, nombre, telefono) VALUES (3, 'Usuario3', '111222333');
+INSERT INTO Usuarios (id_usuario, nombre, telefono) VALUES (4, 'Usuario4', '444555');
+INSERT INTO Usuarios (id_usuario, nombre, telefono) VALUES (5, 'Usuario5', '777777');
+INSERT INTO Usuarios (id_usuario, nombre, telefono) VALUES (6, 'Usuario6', '12345');
+COMMIT TRANSACTION;
+
+
+--Ejercicio 5: BEFORE UPDATE - Validar Fecha de Nacimiento
+--Contexto: Crea una tabla Empleados con las columnas id_empleado, nombre, fecha_nacimiento.
+--Prueba del Disparador:
+--Resultado Esperado: La actualización falla con el mensaje 'La fecha de nacimiento no puede ser futura'.
+
+SELECT * FROM Empleados ;
+
+CREATE TRIGGER trigger_before_update_validar_fecha_nacimiento
+ON Empleados
+INSTEAD OF UPDATE
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM inserted WHERE fecha_nacimiento > GETDATE())
+    BEGIN
+        RAISERROR('La fecha de nacimiento no puede ser futura', 16, 1);
+        RETURN;
+    END
+
+    UPDATE Empleados
+    SET nombre = inserted.nombre,
+        fecha_nacimiento = inserted.fecha_nacimiento
+    FROM inserted
+    WHERE Empleados.id_empleado = inserted.id_empleado;
+END;
+
+
+
+INSERT INTO Empleados (nombre, fecha_nacimiento)
+VALUES 
+('Juan Perez', '2040-01-01'),
+( 'Maria Lopez', '2030-05-12'),
+( 'Carlos Sanchez', '2025-09-23'),
+( 'Ana Martinez', '2026-03-17'),
+( 'Luis Gomez', '2024-11-30');
+
+
+UPDATE Empleados SET fecha_nacimiento = '2025-09-23 00:00:00.000' WHERE id_empleado = 1;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------ Disparadores AFTER -------------------------------------------------
 
 -- Ejercicio 1: AFTER INSERT - Registrar Nuevos Clientes
 -- Contexto: Utiliza las tablas Clientes y LogBorrado creadas anteriormente. Crea un disparador que
@@ -112,12 +274,6 @@ CREATE TABLE HistorialPrecios (
 	old_price MONEY,
 	new_price MONEY,
 	change_date DATETIME DEFAULT GETDATE()
-);
-
-CREATE TABLE Productos (
-	id INT IDENTITY(1, 1) PRIMARY KEY,
-	name VARCHAR(40),
-	price MONEY,
 );
 
 SELECT * FROM HistorialPrecios;
@@ -191,13 +347,6 @@ SELECT * FROM Inventario;
 --Prueba del Disparador:
 --Resultado Esperado: El cambio de departamento se registra en la tabla HistorialEmpleados.
 
-CREATE TABLE Empleados (
-	id INT IDENTITY(1, 1) PRIMARY KEY,
-	name VARCHAR(40),
-	id_department INT,
-	last_name VARCHAR(40)
-);
-
 CREATE TABLE Departamento (
 	id INT IDENTITY(1, 1) PRIMARY KEY,
 	name VARCHAR(40)
@@ -241,23 +390,117 @@ WHERE id = 1;
 
 
 
+------------------------------------------Disparadores ROW LEVEL-----------------------------------------
+
+
+
+--Ejercicio 1: BEFORE INSERT ROW LEVEL - Convertir Correos Electrónicos a Minúsculas
+--Contexto: Utiliza la tabla Clientes creada anteriormente. Crea un disparador que convierta los correos
+--electrónicos a minúsculas antes de insertarlos en la tabla.
+--Prueba del Disparador:
+--Resultado Esperado: El email se inserta en minúsculas (luis.martinez@mail.com).
 
 
 
 
+------------------------------------------ STATEMENT LEVEL  -----------------------------------------------
+
+
+CREATE TABLE Acciones (
+id_accion int IDENTITY(1,1) PRIMARY KEY,
+descripcion VARCHAR (100),
+fecha_accion DATETIME
+
+);
+
+
+--Ejercicio 3: AFTER DELETE STATEMENT LEVEL - Registrar Acción
+--Contexto: Utiliza las tablas Ventas y Acciones creadas anteriormente. Crea un disparador que registre
+--una acción después de eliminar registros en la tabla Ventas.
+--Prueba del Disparador:
+--Resultado Esperado: Se registra la acción de eliminar registros de ventas en la tabla Acciones.
 
 
 
 
+CREATE TRIGGER registrar_accion
+ON VENTAS 
+AFTER DELETE
+AS
+BEGIN
+	INSERT INTO Acciones ( descripcion, fecha_accion ) VALUES ('Nueva venta', GETDATE());
+END;
+
+INSERT INTO Ventas (id_producto, cantidad, fecha_venta) VALUES (1, 10, GETDATE());
+
+DELETE FROM Ventas WHERE id_venta = 2;
+
+SELECT * FROM Ventas v ;
+SELECT * FROM Acciones;
 
 
 
 
+--Ejercicio 4: BEFORE INSERT ROW LEVEL - Validar Teléfono
+--Contexto: Utiliza la tabla Usuarios creada anteriormente. Crea un disparador que valide el número de
+--teléfono antes de insertarlo en la tabla.
+--Prueba del Disparador:
+--Resultado Esperado: El primer INSERT se completa con éxito, el segundo INSERT falla con el mensaje
+--'El teléfono debe tener 10 dígitos'.
 
+DROP TRIGGER validar_telefono;
 
+CREATE TRIGGER row_level_validar_telefono
+ON Usuarios
+INSTEAD OF INSERT
+AS
+BEGIN
+    DECLARE @TelefonoLength INT;
+    DECLARE @Telefono VARCHAR(15);
 
+    SELECT @Telefono = telefono FROM inserted;
+    SELECT @TelefonoLength = LEN(@Telefono);
 
+    IF @TelefonoLength < 10
+    BEGIN
+        RAISERROR('El tel�fono debe tener al menos 10 d�gitos', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END;
 
+SELECT * FROM Usuarios;
+
+INSERT INTO Usuarios (nombre, telefono) VALUES ('USUARIO2', 838)
+
+--Ejercicio 5: BEFORE UPDATE ROW LEVEL - Validar Fecha de Nacimiento
+--Contexto: Utiliza la tabla Empleados creada anteriormente. Crea un disparador que valide la fecha de
+--nacimiento antes de actualizarla en la tabla.
+--Prueba del Disparador:
+--Resultado Esperado: La actualización falla con el mensaje 'La fecha de nacimiento no puede ser futura'.
+
+SELECT * FROM Empleados;
+
+DROP TRIGGER trigger_before_update_validar_fecha_nacimiento;
+
+CREATE TRIGGER trigger_row_level_before_update_validar_fecha_nacimiento
+ON Empleados
+INSTEAD OF UPDATE
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM inserted WHERE fecha_nacimiento > GETDATE())
+    BEGIN
+        RAISERROR('La fecha de nacimiento no puede ser futura', 16, 1);
+        RETURN;
+    END
+
+    UPDATE Empleados
+    SET nombre = inserted.nombre,
+        fecha_nacimiento = inserted.fecha_nacimiento
+    FROM inserted
+    WHERE Empleados.id_empleado = inserted.id_empleado;
+END;
+
+UPDATE Empleados SET fecha_nacimiento = '2026-03-17 00:00:00.000' WHERE id_empleado = 1;
 
 
 
