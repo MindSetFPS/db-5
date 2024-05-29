@@ -14,11 +14,12 @@ CREATE TABLE Clientes (
 );
 
 CREATE TABLE Ventas (
-    id_venta INT PRIMARY KEY,
+    id_venta INT IDENTITY(1, 1) PRIMARY KEY,
     id_producto INT,
     cantidad INT,
     fecha_venta DATETIME
 );
+
 
 CREATE TABLE LogBorrado (
     id_log INT IDENTITY(1, 1) PRIMARY KEY,
@@ -152,22 +153,36 @@ SELECT * FROM Ventas;
 INSERT  INTO VENTAS(id_venta, id_producto, cantidad) VALUES (453, 1, 38);
 SELECT * FROM Productos;
 
+--Ejercicio 4: AFTER INSERT - Actualizar Stock
+--Contexto: Crea una tabla Inventario con las columnas id_producto, stock. 
+--Utiliza la tabla Ventas creada anteriormente. 
+--Crea un disparador que actualice el stock después de insertar una venta.
+--Prueba del Disparador:
+--Resultado Esperado: El stock del producto 1 se reduce en 10 unidades.
 
+CREATE TABLE Inventario (
+	id_producto INT,
+	stock INT, 
+);
 
+SELECT * FROM Ventas;
+SELECT * FROM Products;
+INSERT INTO Ventas(id_producto, cantidad) VALUES (1, 1);
+INSERT INTO Inventario (id_producto, stock) VALUES (1, 50);
+INSERT INTO Ventas (id_producto, cantidad, fecha_venta) VALUES (1, 1, GETDATE());
 
+CREATE TRIGGER decrease_product_inventory
+ON Ventas
+AFTER INSERT
+AS
+BEGIN
+	UPDATE Inventario
+	SET Inventario.stock = Inventario.stock - 10
+	FROM Inventario
+	INNER JOIN INSERTED ON Inventario.id_producto = INSERTED.id_producto
+END;
 
-
-
-
-
-
-
-
-
-
-
-
-
+SELECT * FROM Inventario;
 
 
 
