@@ -407,11 +407,101 @@ WHERE id = 1;
 
 
 CREATE TABLE Acciones (
-id_accion int IDENTITY(1,1) PRIMARY KEY,
-descripcion VARCHAR (100),
-fecha_accion DATETIME
-
+    id_accion INT,
+    descripcion VARCHAR(255),
+    fecha_accion DATETIME
 );
+
+CREATE TABLE Clientes (
+    id_cliente INT,
+    nombre VARCHAR(255),
+    email VARCHAR(255)
+);
+GO
+CREATE TABLE Acciones (
+    id_accion INT,
+    descripcion VARCHAR(255),
+    fecha_accion DATETIME
+);
+GO
+
+CREATE TABLE Productos (
+    id_producto INT,
+    nombre VARCHAR(255),
+    precio DECIMAL(10, 2) 
+);
+GO
+
+--Ejercicio 1: BEFORE INSERT STATEMENT LEVEL 
+--Registrar AcciónContexto: Crea una tabla Acciones con las columnas id_accion, descripcion, y fecha_accion. 
+--Crea un disparador que registre una acción antes de insertar registros en la tabla Clientes.
+--Prueba del Disparador:
+--Resultado Esperado: Se registra la acción de insertar nuevos clientes en la tabla Acciones.
+
+CREATE TRIGGER before_insert_clientes
+ON Clientes
+INSTEAD OF INSERT
+AS
+BEGIN
+    INSERT INTO Acciones (descripcion, fecha_accion)
+    VALUES ('Se va a insertar un nuevo cliente', GETDATE());
+
+    INSERT INTO Clientes (nombre, email)
+    SELECT nombre, email
+    FROM inserted;
+END;
+GO
+
+INSERT INTO Clientes (nombre, email)
+VALUES ('Juan Perez', 'juan.perez@example.com');
+
+INSERT INTO Clientes (nombre, email)
+VALUES ('Maria Lopez', 'maria.lopez@example.com');
+
+INSERT INTO Clientes (nombre, email)
+VALUES ('Carlos Gonzalez', 'carlos.gonzalez@example.com');
+
+INSERT INTO Clientes (nombre, email)
+VALUES ('Ana Martinez', 'ana.martinez@example.com');
+
+INSERT INTO Clientes (nombre, email)
+VALUES ('Luis Fernandez', 'luis.fernandez@example.com');
+GO
+
+SELECT * FROM Acciones;
+GO
+
+--Ejercicio 2: AFTER UPDATE STATEMENT LEVEL 
+--Registrar AcciónContexto: Utiliza las tablas Productos y Acciones creadas anteriormente.
+--Crea un disparador que registre una acción después de actualizar precios en la tabla Productos.
+--Prueba del Disparador:
+--Resultado Esperado: Se registra la acción de actualizar precios en la tabla Acciones.
+
+CREATE TRIGGER after_update_precios
+ON Productos
+AFTER UPDATE
+AS
+BEGIN
+    IF UPDATE(precio)
+    BEGIN
+        INSERT INTO Acciones (descripcion, fecha_accion)
+        VALUES ('Se ha actualizado el precio de un producto', GETDATE());
+    END
+END;
+GO
+
+INSERT INTO Productos (nombre, precio)
+VALUES ('Producto A', 10.00),
+       ('Producto B', 20.00),
+       ('Producto C', 30.00);
+GO
+
+UPDATE Productos
+SET precio = precio * 1.1;  
+GO
+
+SELECT * FROM Acciones;
+GO
 
 
 --Ejercicio 3: AFTER DELETE STATEMENT LEVEL - Registrar Acción
